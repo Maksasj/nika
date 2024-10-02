@@ -27,8 +27,8 @@ PPM_INLINE void ppm_export_image(const char* file_name, int width, int height, c
     fprintf(fptr, "%d %d\n", width, height);
     fprintf(fptr, "255\n");
 
-    for(int x = 0; x < width; ++x) {
-        for(int y = 0; y < height; ++y) {
+    for(int y = 0; y < height; ++y) {
+        for(int x = 0; x < width; ++x) {
             color_rgba_t pixel = data[x + width * y];
 
             fputc((unsigned char) pixel.r, fptr);
