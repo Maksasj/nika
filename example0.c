@@ -5,6 +5,8 @@
 
 #include "nika.h"
 
+typedef ppm_color_rgba32f_t color_t; 
+
 typedef struct {
     float x;
     float y;
@@ -45,7 +47,7 @@ v2_t sphere_intersect(v3_t ro, v3_t rd, v3_t ce, float ra) {
 
 }
 
-unsigned int nika_per_pixel(float x, float y, float width, float height) {
+color_t nika_per_pixel(float x, float y, float width, float height) {
     const float aspect_ratio = width / height;
 
     v3_t ray_dir = (v3_t) {
@@ -69,29 +71,24 @@ unsigned int nika_per_pixel(float x, float y, float width, float height) {
     const v2_t t = sphere_intersect(ray_orig, ray_dir, orig, 1.0f); 
 
     if(t.y < 0.0) { 
-        return 0x00000000;
+        return (color_t){ 0.0f, 0.0f, 0.0f, 0.0f }; 
     } else if(t.x < 0.0) {
-        return 0xff000000; 
+        return (color_t){ 0.0f, 1.0f, 0.0f, 0.0f }; 
     } else { 
-        return 0x00ff0000; 
+        return (color_t){ 1.0f, 1.0f, 1.0f, 0.0f }; 
     }
 }
 
 int main() {
-    color_rgba_t* canvas = malloc(sizeof(color_rgba_t) * 800 * 600);
+    color_t* canvas = malloc(sizeof(color_t) * 800 * 600);
 
     for(int x = 0; x < 800; ++x) {
         for(int y = 0; y < 600; ++y) {
-            *((unsigned int*)&(canvas[x + 800 * y])) = nika_per_pixel(x, y, 800.0f, 600.0f);
-
-            // if(x % 2 == 0) {
-            //     *((unsigned int*)&(canvas[x + 800 * y])) = 0xFFFFFFFF; 
-            // } else 
-            //     *((unsigned int*)&(canvas[x + 800 * y])) = 0x0;
+            canvas[x + 800 * y] = nika_per_pixel(x, y, 800.0f, 600.0f);
         }
     }
         
-    ppm_export_image("render.ppm", 800, 600, canvas);
+    ppm_export_image("render.ppm", 800, 600, RGBA32F, canvas);
 
     free(canvas);
 
