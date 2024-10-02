@@ -14,8 +14,9 @@ typedef enum {
 
 typedef struct {
     ray_result_type_t type;
-    v3_t point;
+    v2_t point;
     nika_color_t color;
+    NikaSphere sphere;
 } ray_hit_result_t;
 
 typedef union {
@@ -46,8 +47,9 @@ ray_result_t nika_trace_ray(ray_t ray, NikaSphere* objects, unsigned int count) 
 
         result.hit = (ray_hit_result_t) {
             .type = Hit,
-            .point = (v3_t){ 0.0f, 0.0f, 0.0f },
-            .color = sphere.material->color
+            .point = t,
+            .color = sphere.material->color,
+            .sphere = sphere
         };
 
         depth = t.x;
@@ -71,16 +73,50 @@ color_t nika_per_pixel(float x, float y, float width, float height, NikaSphere* 
         0.0f
     };
 
-    ray_result_t result = nika_trace_ray((ray_t) {
-        ray_orig,
-        ray_dir
-    }, objects, count);
+    v3_t light = (v3_t) { 0.0f, 0.0f, 0.0f };
+    v3_t contribution = (v3_t) { 1.0f, 1.0f, 1.0f };
 
-    if(!result.type == Miss) {
-        return result.hit.color;
+    for(int b = 0; b < 5; ++b) {
+        ray_result_t result = nika_trace_ray((ray_t) {
+            ray_orig,
+            ray_dir
+        }, objects, count);
+
+        if(result.type == Miss) {
+            v3_t sky_color = (v3_t) { 1.0f,  1.0f,  1.0f };
+
+            light = (v3_t) {
+                light.x + sky_color.x * contribution.x,
+                light.y + sky_color.y * contribution.y,
+                light.z + sky_color.z * contribution.z
+            };
+
+            continue;
+        }
+
+        contribution = (v3_t) {
+            contribution.x * result.hit.color.r,
+            contribution.y * result.hit.color.g,
+            contribution.z * result.hit.color.b
+        };
+
+        // Reflect ray
+        ray_orig.x += ray_dir.x*result.hit.point.x;
+        ray_orig.y += ray_dir.y*result.hit.point.x;
+        ray_orig.z += ray_dir.z*result.hit.point.x;
+
+        v3_t normal = (v3_t) {
+            result.hit.sphere.origin.x - ray_orig.x,
+            result.hit.sphere.origin.y - ray_orig.y,
+            result.hit.sphere.origin.z - ray_orig.z
+        };
+
+        ray_dir.x = ray_dir.x - normal.x * 2.0f * nika_dot(ray_dir, normal);
+        ray_dir.y = ray_dir.y - normal.y * 2.0f * nika_dot(ray_dir, normal);
+        ray_dir.z = ray_dir.z - normal.z * 2.0f * nika_dot(ray_dir, normal);
     }
 
-    return (nika_color_t){ 0.0f, 0.0f, 0.0f, 0.0f };
+    return (nika_color_t){ light.x, light.y, light.z, 1.0f };
 }
 
 void nika_render_scene(NikaCanvas* canvas, NikaSphere* objects, unsigned int count) {
@@ -102,15 +138,15 @@ int main() {
     };
 
     NikaMaterial red = (NikaMaterial) {
-        .color = (nika_color_t){ 1.0f, 0.0f, 0.0f, 1.0f }
+        .color = (nika_color_t){ 0.8f, 0.1f, 0.1f, 1.0f }
     };
 
     NikaMaterial green = (NikaMaterial) {
-        .color = (nika_color_t){ 0.0f, 1.0f, 0.0f, 1.0f }
+        .color = (nika_color_t){ 0.1f, 0.8f, 0.1f, 1.0f }
     };
     
     NikaMaterial blue = (NikaMaterial) {
-        .color = (nika_color_t){ 0.0f, 0.0f, 1.0f, 1.0f }
+        .color = (nika_color_t){ 0.1f, 0.1f, 0.8f, 1.0f }
     };
 
     NikaSphere objects[] = {
