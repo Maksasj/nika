@@ -34,15 +34,15 @@ ray_result_t nika_trace_ray(ray_t ray, NikaSphere* objects, unsigned int count) 
         NikaSphere sphere = objects[i]; 
         const v2_t t = sphere_intersect(ray.origin, ray.dir, sphere.origin, sphere.radius); 
 
-        if(t.y < 0.0) { 
+        if (t.y < 0.0) { 
             continue;
            //  return (color_t){ 0.0f, 0.0f, 0.0f, 0.0f }; 
-        } else if(t.x < 0.0) {
+        } else if (t.x < 0.0) {
             continue;
             // return (color_t){ 0.0f, 1.0f, 0.0f, 0.0f }; 
         }
 
-        if(t.x > depth)
+        if (t.x > depth)
             continue;
 
         result.hit = (ray_hit_result_t) {
@@ -72,7 +72,7 @@ color_t nika_per_pixel(float x, float y, float width, float height, NikaSphere* 
     v3_t light = (v3_t) { 0.0f, 0.0f, 0.0f };
     v3_t contribution = (v3_t) { 1.0f, 1.0f, 1.0f };
 
-    for(int b = 0; b < 10; ++b) {
+    for(int b = 0; b < 5; ++b) {
         ray_t ray = (ray_t) { ray_orig, ray_dir };
 
         ray_result_t result = nika_trace_ray(ray, objects, count);
@@ -89,10 +89,13 @@ color_t nika_per_pixel(float x, float y, float width, float height, NikaSphere* 
         v3_t hit_point = nika_sum_v3(ray_orig, nika_mul_v3_scalar(ray_dir, distance));
         v3_t normal = nika_v3_normalize(nika_sub_v3(hit_point, result.hit.sphere.origin)); 
 
-        ray_orig = nika_sum_v3(hit_point, nika_mul_v3_scalar(normal, 0.01f)); 
+        ray_orig = nika_sum_v3(hit_point, nika_mul_v3_scalar(normal, 0.001f)); 
 
         v3_t reflection = nika_sub_v3(ray_dir, nika_mul_v3_scalar(nika_mul_v3_scalar(normal, nika_dot_v3(ray_dir, normal)), 2.0f)); 
-        ray_dir = nika_v3_normalize(reflection);
+
+        float metallic = 0.05f;
+
+        ray_dir = nika_v3_normalize(nika_sum_v3(reflection, nika_mul_v3_scalar(random_in_unit_sphere(), metallic)));
     }
 
     return (nika_color_t){ light.x, light.y, light.z, 1.0f };

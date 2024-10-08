@@ -131,6 +131,19 @@ v3_t nika_v3_normalize(v3_t a) {
     };
 }
 
+
+static float random_float() {
+    return (float) (rand()) / (float) (RAND_MAX);
+}
+
+static v3_t random_in_unit_sphere() {
+    const float x = random_float() * 2.0f - 1.0f;
+    const float y = random_float() * 2.0f - 1.0f;
+    const float z = random_float() * 2.0f - 1.0f;
+
+    return nika_v3_normalize((v3_t){x, y, z});
+}
+
 typedef struct {
     v3_t origin;
     v3_t dir;
