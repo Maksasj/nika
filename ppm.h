@@ -71,9 +71,9 @@ PPM_INLINE void ppm_export_image(const char* file_name, int width, int height, c
             for(int x = 0; x < width; ++x) {
                 ppm_color_rgba32f_t pixel = ((ppm_color_rgba32f_t*) data)[x + width * y];
 
-                unsigned char r = (unsigned char) pixel.r * 255;
-                unsigned char g = (unsigned char) pixel.g * 255;
-                unsigned char b = (unsigned char) pixel.b * 255;
+                unsigned char r = (unsigned char) (pixel.r * 255.0f);
+                unsigned char g = (unsigned char) (pixel.g * 255.0f);
+                unsigned char b = (unsigned char) (pixel.b * 255.0f);
                 
                 fputc((unsigned char) r, fptr);
                 fputc((unsigned char) g, fptr);

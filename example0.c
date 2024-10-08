@@ -67,53 +67,32 @@ color_t nika_per_pixel(float x, float y, float width, float height, NikaSphere* 
         -1.0f
     };
 
-    v3_t ray_orig = (v3_t) {
-        0.0f,
-        0.0f,
-        0.0f
-    };
+    v3_t ray_orig = (v3_t) { 0.0f, 0.0f, 0.0f };
 
     v3_t light = (v3_t) { 0.0f, 0.0f, 0.0f };
     v3_t contribution = (v3_t) { 1.0f, 1.0f, 1.0f };
 
-    for(int b = 0; b < 5; ++b) {
-        ray_result_t result = nika_trace_ray((ray_t) {
-            ray_orig,
-            ray_dir
-        }, objects, count);
+    for(int b = 0; b < 10; ++b) {
+        ray_t ray = (ray_t) { ray_orig, ray_dir };
+
+        ray_result_t result = nika_trace_ray(ray, objects, count);
 
         if(result.type == Miss) {
             v3_t sky_color = (v3_t) { 1.0f,  1.0f,  1.0f };
-
-            light = (v3_t) {
-                light.x + sky_color.x * contribution.x,
-                light.y + sky_color.y * contribution.y,
-                light.z + sky_color.z * contribution.z
-            };
-
-            continue;
+            light = nika_sum_v3(light, nika_mul_v3(sky_color, contribution));
+            break;
         }
 
-        contribution = (v3_t) {
-            contribution.x * result.hit.color.r,
-            contribution.y * result.hit.color.g,
-            contribution.z * result.hit.color.b
-        };
+        contribution = nika_mul_v3(contribution, nika_v3_from_color(result.hit.color));
 
-        // Reflect ray
-        ray_orig.x += ray_dir.x*result.hit.point.x;
-        ray_orig.y += ray_dir.y*result.hit.point.x;
-        ray_orig.z += ray_dir.z*result.hit.point.x;
+        float distance = result.hit.point.x;
+        v3_t hit_point = nika_sum_v3(ray_orig, nika_mul_v3_scalar(ray_dir, distance));
+        v3_t normal = nika_v3_normalize(nika_sub_v3(hit_point, result.hit.sphere.origin)); 
 
-        v3_t normal = (v3_t) {
-            result.hit.sphere.origin.x - ray_orig.x,
-            result.hit.sphere.origin.y - ray_orig.y,
-            result.hit.sphere.origin.z - ray_orig.z
-        };
+        ray_orig = nika_sum_v3(hit_point, nika_mul_v3_scalar(normal, 0.01f)); 
 
-        ray_dir.x = ray_dir.x - normal.x * 2.0f * nika_dot(ray_dir, normal);
-        ray_dir.y = ray_dir.y - normal.y * 2.0f * nika_dot(ray_dir, normal);
-        ray_dir.z = ray_dir.z - normal.z * 2.0f * nika_dot(ray_dir, normal);
+        v3_t reflection = nika_sub_v3(ray_dir, nika_mul_v3_scalar(nika_mul_v3_scalar(normal, nika_dot_v3(ray_dir, normal)), 2.0f)); 
+        ray_dir = nika_v3_normalize(reflection);
     }
 
     return (nika_color_t){ light.x, light.y, light.z, 1.0f };
@@ -138,24 +117,29 @@ int main() {
     };
 
     NikaMaterial red = (NikaMaterial) {
-        .color = (nika_color_t){ 0.8f, 0.1f, 0.1f, 1.0f }
+        .color = (nika_color_t){ 0.8f, 0.4f, 0.4f, 1.0f }
     };
 
     NikaMaterial green = (NikaMaterial) {
-        .color = (nika_color_t){ 0.1f, 0.8f, 0.1f, 1.0f }
+        .color = (nika_color_t){ 0.4f, 0.8f, 0.4f, 1.0f }
     };
     
     NikaMaterial blue = (NikaMaterial) {
-        .color = (nika_color_t){ 0.1f, 0.1f, 0.8f, 1.0f }
+        .color = (nika_color_t){ 0.4f, 0.4f, 0.8f, 1.0f }
+    };
+
+    NikaMaterial floor = (NikaMaterial) {
+        .color = (nika_color_t){ 0.2f, 0.2f, 0.2f, 1.0f }
     };
 
     NikaSphere objects[] = {
         (NikaSphere){ (v3_t){ 0.0f, 0.0f, -5.0f }, 1.0f, &red},
         (NikaSphere){ (v3_t){ 1.0f, 0.0f, -3.0f }, 0.8f, &green},
         (NikaSphere){ (v3_t){ -1.0f, 0.0f, -3.0f }, 0.8f, &blue},
+        (NikaSphere){ (v3_t){ 0.0f, 402.0f, -3.0f }, 400.0f, &floor},
     }; 
 
-    nika_render_scene(&canvas, objects, 3);
+    nika_render_scene(&canvas, objects, 4);
         
     ppm_export_image("render.ppm", 800, 600, RGBA32F, canvas.data);
 
