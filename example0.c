@@ -15,7 +15,6 @@ typedef enum {
 typedef struct {
     ray_result_type_t type;
     v2_t point;
-    nika_color_t color;
     NikaSphere sphere;
 } ray_hit_result_t;
 
@@ -48,7 +47,6 @@ ray_result_t nika_trace_ray(ray_t ray, NikaSphere* objects, unsigned int count) 
         result.hit = (ray_hit_result_t) {
             .type = Hit,
             .point = t,
-            .color = sphere.material->color,
             .sphere = sphere
         };
 
@@ -83,7 +81,9 @@ color_t nika_per_pixel(float x, float y, float width, float height, NikaSphere* 
             break;
         }
 
-        contribution = nika_mul_v3(contribution, nika_v3_from_color(result.hit.color));
+        NikaMaterial* material = result.hit.sphere.material;
+
+        contribution = nika_mul_v3(contribution, nika_v3_from_color(material->albedo));
 
         float distance = result.hit.point.x;
         v3_t hit_point = nika_sum_v3(ray_orig, nika_mul_v3_scalar(ray_dir, distance));
@@ -93,9 +93,7 @@ color_t nika_per_pixel(float x, float y, float width, float height, NikaSphere* 
 
         v3_t reflection = nika_sub_v3(ray_dir, nika_mul_v3_scalar(nika_mul_v3_scalar(normal, nika_dot_v3(ray_dir, normal)), 2.0f)); 
 
-        float metallic = 0.05f;
-
-        ray_dir = nika_v3_normalize(nika_sum_v3(reflection, nika_mul_v3_scalar(random_in_unit_sphere(), metallic)));
+        ray_dir = nika_v3_normalize(nika_sum_v3(reflection, nika_mul_v3_scalar(random_in_unit_sphere(), material->metallic)));
     }
 
     return (nika_color_t){ light.x, light.y, light.z, 1.0f };
@@ -105,9 +103,25 @@ void nika_render_scene(NikaCanvas* canvas, NikaSphere* objects, unsigned int cou
     const unsigned int width = canvas->width;
     const unsigned int height = canvas->height;
     
+    for(int i = 0; i < 10; ++i) {
+        for(int x = 0; x < width; ++x) {
+            for(int y = 0; y < height; ++y) {
+                color_t color = nika_per_pixel(x, y, width, height, objects, count);
+
+                canvas->data[x + width * y].r += color.r;
+                canvas->data[x + width * y].g += color.g;
+                canvas->data[x + width * y].b += color.b;
+                canvas->data[x + width * y].a += color.a;
+            }
+        }
+    }
+
     for(int x = 0; x < width; ++x) {
         for(int y = 0; y < height; ++y) {
-            canvas->data[x + width * y] = nika_per_pixel(x, y, width, height, objects, count);
+            canvas->data[x + width * y].r /= 10.0f;
+            canvas->data[x + width * y].g /= 10.0f;
+            canvas->data[x + width * y].b /= 10.0f;
+            canvas->data[x + width * y].a /= 10.0f;
         }
     }
 };
@@ -120,26 +134,30 @@ int main() {
     };
 
     NikaMaterial red = (NikaMaterial) {
-        .color = (nika_color_t){ 0.8f, 0.4f, 0.4f, 1.0f }
+        .albedo = (nika_color_t){ 0.8f, 0.4f, 0.4f, 1.0f },
+        .metallic = 0.1f
     };
 
     NikaMaterial green = (NikaMaterial) {
-        .color = (nika_color_t){ 0.4f, 0.8f, 0.4f, 1.0f }
+        .albedo = (nika_color_t){ 0.4f, 0.8f, 0.4f, 1.0f },
+        .metallic = 0.02f
     };
     
     NikaMaterial blue = (NikaMaterial) {
-        .color = (nika_color_t){ 0.4f, 0.4f, 0.8f, 1.0f }
+        .albedo = (nika_color_t){ 0.4f, 0.4f, 0.8f, 1.0f },
+        .metallic = 0.02f
     };
 
     NikaMaterial floor = (NikaMaterial) {
-        .color = (nika_color_t){ 0.2f, 0.2f, 0.2f, 1.0f }
+        .albedo = (nika_color_t){ 0.2f, 0.2f, 0.2f, 1.0f },
+        .metallic = 0.99f
     };
 
     NikaSphere objects[] = {
-        (NikaSphere){ (v3_t){ 0.0f, 0.0f, -5.0f }, 1.0f, &red},
-        (NikaSphere){ (v3_t){ 1.0f, 0.0f, -3.0f }, 0.8f, &green},
-        (NikaSphere){ (v3_t){ -1.0f, 0.0f, -3.0f }, 0.8f, &blue},
-        (NikaSphere){ (v3_t){ 0.0f, 402.0f, -3.0f }, 400.0f, &floor},
+        (NikaSphere){ (v3_t){ 0.0f, 0.0f, -7.0f }, 1.0f, &red},
+        (NikaSphere){ (v3_t){ 1.0f, 0.0f, -5.0f }, 0.8f, &green},
+        (NikaSphere){ (v3_t){ -1.0f, 0.0f, -5.0f }, 0.8f, &blue},
+        (NikaSphere){ (v3_t){ 0.0f, 400.5f, -5.0f }, 400.0f, &floor},
     }; 
 
     nika_render_scene(&canvas, objects, 4);

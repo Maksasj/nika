@@ -150,7 +150,8 @@ typedef struct {
 } ray_t;
 
 typedef struct {
-    nika_color_t color;
+    nika_color_t albedo;
+    float metallic;
 } NikaMaterial;
 
 typedef struct {
