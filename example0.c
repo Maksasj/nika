@@ -6,40 +6,40 @@
 #include "nika.h"
 
 int main() {
-    NikaCanvas canvas = (NikaCanvas) {
+    nika_canvas_t canvas = (nika_canvas_t) {
         .data = (nika_color_t*) malloc(sizeof(nika_color_t) * 800 * 600),
         .width = 800,
         .height = 600
     };
 
-    NikaMaterial red = (NikaMaterial) {
+    nika_material_t red = (nika_material_t) {
         .albedo = (nika_color_t){ 0.8f, 0.4f, 0.4f, 1.0f },
         .metallic = 0.1f
     };
 
-    NikaMaterial green = (NikaMaterial) {
+    nika_material_t green = (nika_material_t) {
         .albedo = (nika_color_t){ 0.4f, 0.8f, 0.4f, 1.0f },
         .metallic = 0.02f
     };
     
-    NikaMaterial blue = (NikaMaterial) {
+    nika_material_t blue = (nika_material_t) {
         .albedo = (nika_color_t){ 0.4f, 0.4f, 0.8f, 1.0f },
         .metallic = 0.02f
     };
 
-    NikaMaterial floor = (NikaMaterial) {
+    nika_material_t floor = (nika_material_t) {
         .albedo = (nika_color_t){ 0.2f, 0.2f, 0.2f, 1.0f },
         .metallic = 0.99f
     };
 
-    NikaSphere objects[] = {
-        (NikaSphere){ (v3_t){ 0.0f, 0.0f, -7.0f }, 1.0f, &red},
-        (NikaSphere){ (v3_t){ 1.0f, 0.0f, -5.0f }, 0.8f, &green},
-        (NikaSphere){ (v3_t){ -1.0f, 0.0f, -5.0f }, 0.8f, &blue},
-        (NikaSphere){ (v3_t){ 0.0f, 400.5f, -5.0f }, 400.0f, &floor},
-    }; 
+    nika_object_t objects[] = {
+        nika_sphere((v3_t){ 0.0f, 0.0f, -7.0f }, 1.0f, &red),
+        nika_sphere((v3_t){ 1.0f, 0.0f, -5.0f }, 0.8f, &green),
+        nika_sphere((v3_t){ -1.0f, 0.0f, -5.0f }, 0.8f, &blue),
+        nika_sphere((v3_t){ 0.0f, 400.5f, -5.0f }, 400.0f, &floor)
+    };
 
-    NikaCamera camera = (NikaCamera) {
+    nika_camera_t camera = (nika_camera_t) {
         .origin = (v3_t){ 0.0f, 0.0f, 0.0f }
     };
 

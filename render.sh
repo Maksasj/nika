@@ -1,6 +1,6 @@
 #!/bin/bash
 
-gcc example0.c  -lm && ./a.out 
+gcc example0.c -O3 -lm && ./a.out 
 
 for i in *.ppm;
   do name=`echo "$i" | cut -d'.' -f1`

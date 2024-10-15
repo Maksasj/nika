@@ -152,22 +152,117 @@ typedef struct {
 typedef struct {
     nika_color_t albedo;
     float metallic;
-} NikaMaterial;
+} nika_material_t;
+
+typedef enum {
+    Hit,
+    Miss
+} ray_result_type_t;
+
+typedef struct {
+    ray_result_type_t type;
+
+    v2_t distance;
+
+    v3_t point;
+    v3_t hit_normal;
+} ray_intersect_result_t;
+
+struct nika_object_t;
+
+typedef struct {
+    void* data;
+    nika_material_t* material;
+    ray_intersect_result_t (*intersect_callback)(v3_t, v3_t, void*);
+} nika_object_t;
 
 typedef struct {
     v3_t origin;
     float radius;
-    NikaMaterial* material;
-} NikaSphere;
+} nika_sphere_data_t;
+
+typedef struct {
+    ray_result_type_t type;
+
+    v2_t point;
+    nika_object_t* object;
+} ray_hit_result_t;
+
+typedef union {
+    ray_result_type_t type;
+
+    ray_hit_result_t hit;
+} ray_result_t;
+
+typedef struct {
+    v3_t origin;
+} nika_camera_t;
+
+void nika_swap_f(float *a, float *b) {
+    float temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+ray_intersect_result_t nika_sphere_intersect(v3_t ro, v3_t rd, void* object) {
+    nika_sphere_data_t* data = (nika_sphere_data_t*) ((nika_object_t*) object)->data; 
+
+    v3_t oc = nika_sub_v3(ro, data->origin);
+    
+    float a = nika_dot_v3(rd, rd);
+    float b = 2.0f * nika_dot_v3(rd, oc);
+    float c = nika_dot_v3(oc, oc) - data->radius*data->radius;
+    float d = b*b - 4*a*c;
+
+    if(d >= 0.0f) {
+        float root = sqrt(d);
+
+        float d0 = (-b + root) / (2.0f * a);
+        float d1 = (-b - root) / (2.0f * a);
+
+        if(d0 > d1) nika_swap_f(&d0, &d1);
+
+        if(d0 < 0.0f && d1 < 0.0f)
+            return (ray_intersect_result_t){ Miss };
+            
+        v3_t point = nika_sum_v3(ro, nika_mul_v3_scalar(rd, d0));
+        v3_t normal = nika_v3_normalize(nika_sub_v3(point, data->origin));
+
+        return (ray_intersect_result_t) { 
+            Hit, 
+            (v2_t){ d0, d1 },
+            point,
+            normal
+        };
+    }
+
+    return (ray_intersect_result_t){ Miss };
+}
+
+nika_object_t nika_sphere(v3_t origin, float radius, nika_material_t* material) {
+    nika_sphere_data_t* data = (nika_sphere_data_t*) malloc(sizeof(nika_sphere_data_t));
+    data->origin = origin;
+    data->radius = radius;
+
+    return (nika_object_t) {
+        data,
+        material,
+        nika_sphere_intersect
+    };
+}
+
+void nika_free_object(nika_object_t* object) {
+    free(object->data);
+    free(object);
+}
 
 typedef struct {
     nika_color_t* data;
     unsigned int width;
     unsigned int height;
-} NikaCanvas;
+} nika_canvas_t;
 
-
-void nika_clear_canvas(NikaCanvas* canvas) {
+void nika_clear_canvas(nika_canvas_t* canvas) {
     const unsigned int width = canvas->width;
     const unsigned int height = canvas->height;
     
@@ -178,80 +273,31 @@ void nika_clear_canvas(NikaCanvas* canvas) {
     }
 }
 
-typedef enum {
-    Hit,
-    Miss
-} ray_result_type_t;
-
-typedef struct {
-    ray_result_type_t type;
-    v2_t point;
-    NikaSphere sphere;
-} ray_hit_result_t;
-
-typedef union {
-    ray_result_type_t type;
-    ray_hit_result_t hit;
-} ray_result_t;
-
-typedef struct {
-    v3_t origin;
-} NikaCamera;
-
-v2_t sphere_intersect(v3_t ro, v3_t rd, v3_t ce, float ra) {
-    const v3_t oc = nika_sub_v3(ro, ce);
-    float b = nika_dot_v3(oc, rd);
-
-    v3_t qc = (v3_t) {
-        oc.x - b*rd.x,
-        oc.y - b*rd.y,
-        oc.z - b*rd.z
-    };
-
-    float h = ra*ra - nika_dot_v3(qc, qc);
-    
-    if(h < 0.0) return (v2_t){ -1.0, -1.0 }; // no intersection
-    
-    h = NIKA_SQRT(h);
-    
-    return (v2_t){ -b-h, -b + h };
-
-}
-
-ray_result_t nika_trace_ray(ray_t ray, NikaSphere* objects, unsigned int count) {
-    float depth = FLT_MAX;
-
+ray_result_t nika_trace_ray(ray_t ray, nika_object_t* objects, unsigned int count) {
     ray_result_t result;
     result.type = Miss;
+    result.hit.point.x = FLT_MAX;
 
-    for(unsigned int i = 0; i < count; ++i) {
-        NikaSphere sphere = objects[i]; 
-        const v2_t t = sphere_intersect(ray.origin, ray.dir, sphere.origin, sphere.radius); 
+    for (unsigned int i = 0; i < count; ++i) {
+        nika_object_t* object = &objects[i]; 
 
-        if (t.y < 0.0) { 
-            continue;
-           //  return (nika_color_t){ 0.0f, 0.0f, 0.0f, 0.0f }; 
-        } else if (t.x < 0.0) {
-            continue;
-            // return (nika_color_t){ 0.0f, 1.0f, 0.0f, 0.0f }; 
-        }
+        ray_intersect_result_t res = (*object->intersect_callback)(ray.origin, ray.dir, object);
 
-        if (t.x > depth)
+        if (res.type == Miss)
             continue;
 
-        result.hit = (ray_hit_result_t) {
-            .type = Hit,
-            .point = t,
-            .sphere = sphere
-        };
+        if (res.distance.x > result.hit.point.x)
+            continue;
 
-        depth = t.x;
+        result.type = Hit;
+        result.hit.point = res.distance;
+        result.hit.object = object;
     }
 
     return result;
 }
 
-nika_color_t nika_per_pixel(NikaCamera camera, float x, float y, float width, float height, NikaSphere* objects, unsigned int count) {
+nika_color_t nika_per_pixel(nika_camera_t camera, float x, float y, float width, float height, nika_object_t* objects, unsigned int count) {
     const float aspect_ratio = width / height;
 
     v3_t ray_dir = (v3_t) {
@@ -276,13 +322,13 @@ nika_color_t nika_per_pixel(NikaCamera camera, float x, float y, float width, fl
             break;
         }
 
-        NikaMaterial* material = result.hit.sphere.material;
+        nika_material_t* material = result.hit.object->material;
 
         contribution = nika_mul_v3(contribution, nika_v3_from_color(material->albedo));
 
         float distance = result.hit.point.x;
         v3_t hit_point = nika_sum_v3(ray_orig, nika_mul_v3_scalar(ray_dir, distance));
-        v3_t normal = nika_v3_normalize(nika_sub_v3(hit_point, result.hit.sphere.origin)); 
+        v3_t normal = (v3_t) { 1.0f,  1.0f,  1.0f }; // nika_v3_normalize(nika_sub_v3(hit_point, result.hit.object.origin)); 
 
         ray_orig = nika_sum_v3(hit_point, nika_mul_v3_scalar(normal, 0.001f)); 
 
@@ -294,11 +340,13 @@ nika_color_t nika_per_pixel(NikaCamera camera, float x, float y, float width, fl
     return (nika_color_t){ light.x, light.y, light.z, 1.0f };
 }
 
-void nika_render_scene(NikaCanvas* canvas, NikaCamera camera, NikaSphere* objects, unsigned int count) {
+#define ITERATIONS 2
+
+void nika_render_scene(nika_canvas_t* canvas, nika_camera_t camera, nika_object_t* objects, unsigned int count) {
     const unsigned int width = canvas->width;
     const unsigned int height = canvas->height;
-    
-    for(int i = 0; i < 10; ++i) {
+
+    for(int i = 0; i < ITERATIONS; ++i) {
         for(int x = 0; x < width; ++x) {
             for(int y = 0; y < height; ++y) {
                 nika_color_t color = nika_per_pixel(camera, x, y, width, height, objects, count);
@@ -313,10 +361,10 @@ void nika_render_scene(NikaCanvas* canvas, NikaCamera camera, NikaSphere* object
 
     for(int x = 0; x < width; ++x) {
         for(int y = 0; y < height; ++y) {
-            canvas->data[x + width * y].r /= 10.0f;
-            canvas->data[x + width * y].g /= 10.0f;
-            canvas->data[x + width * y].b /= 10.0f;
-            canvas->data[x + width * y].a /= 10.0f;
+            canvas->data[x + width * y].r /= (float) ITERATIONS;
+            canvas->data[x + width * y].g /= (float) ITERATIONS;
+            canvas->data[x + width * y].b /= (float) ITERATIONS;
+            canvas->data[x + width * y].a /= (float) ITERATIONS;
         }
     }
 };
