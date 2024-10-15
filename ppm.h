@@ -75,9 +75,9 @@ PPM_INLINE void ppm_export_image(const char* file_name, int width, int height, c
                 unsigned char g = (unsigned char) (pixel.g * 255.0f);
                 unsigned char b = (unsigned char) (pixel.b * 255.0f);
                 
-                fputc((unsigned char) r, fptr);
-                fputc((unsigned char) g, fptr);
-                fputc((unsigned char) b, fptr);
+                fputc(r, fptr);
+                fputc(g, fptr);
+                fputc(b, fptr);
             }
         }
     }
